@@ -9,12 +9,13 @@ COPY requirements.txt .
 # Install dependencies and clear pip cache to optimize image size
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application script and prompts
+# Copy the application scripts and prompts
 COPY agent_bridge.py .
+COPY mcp_server.py .
 COPY prompts/ ./prompts/
 
-# Ensure agent_bridge.py is executable
-RUN chmod +x agent_bridge.py
+# Ensure scripts are executable
+RUN chmod +x agent_bridge.py mcp_server.py
 
-# Run the agent script by default
-ENTRYPOINT ["python", "agent_bridge.py"]
+# Run the MCP Server via stdio by default
+ENTRYPOINT ["python", "mcp_server.py"]

@@ -57,3 +57,42 @@ To customize an agent's instructions:
 ## Offline Testing & Smoke Tests
 
 If the local LLM endpoint is unreachable (e.g., during the CI/CD pipeline build), the agents will gracefully catch the connection error and fall back to returning mocked JSON data. This ensures the LangGraph cyclic workflow (Analyze -> Generate -> Simulate -> Debug -> Verify) can be continuously smoke-tested in complete isolation.
+
+## Integration with OpenCode (MCP Server)
+
+The `dv-agent` is fully compliant with the **Model Context Protocol (MCP)** and acts as an MCP server. This allows AI clients like **OpenCode** to consume the agent's logic as a high-level tool while acting as the primary File System operator and User Interface.
+
+### The "UI vs. Logic" Separation
+When executed via OpenCode, the MCP server enforces strict logical boundaries:
+- **LangGraph (MCP Server):** Handles heavy multi-agent orchestration, UVM coverage gap mapping, and simulation log analysis.
+- **OpenCode (MCP Client/UI):** Handles actual reading and writing of files to disk. The MCP tool returns structured suggestions (e.g., "I have generated sequence `workspace/new_seq.sv`") which OpenCode displays in its UI for human approval.
+
+### Configuration
+To register this MCP server in OpenCode, add the following to your `settings.json` (or equivalent MCP configuration file):
+
+```json
+{
+  "mcpServers": {
+    "dv-agent": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--env-file",
+        "/absolute/path/to/your/.env",
+        "-v",
+        "/absolute/path/to/your/dv/project:/workspace",
+        "dv-agent"
+      ]
+    }
+  }
+}
+```
+*(Note: Use absolute paths in the volume mount and env-file locations)*
+
+### Trigger Instructions
+Once registered, you can invoke the DV workflow directly in the OpenCode chat interface:
+> `@dv-agent analyze the coverage report cov.xml for module axi_interconnect`
+
+OpenCode will call the `run_dv_verification` tool to initiate the iterative sequence generation and simulation loop, streaming progress back to your UI before asking for approval to write the generated "Non-Intrusive" UVM sequences to your local workspace.

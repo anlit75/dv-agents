@@ -7,3 +7,5 @@ pytest==8.0.2
 cocotb==1.8.1
 # EDA log handling utilities
 log-parser==2.3
+# MCP Server SDK
+mcp==1.2.1
