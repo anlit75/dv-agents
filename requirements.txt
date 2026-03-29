@@ -1,0 +1,11 @@
+langgraph==0.0.26
+langchain==0.1.11
+langchain-openai==0.0.8
+pydantic==2.12.5
+pandas==2.2.1
+pytest==8.0.2
+cocotb==1.8.1
+# EDA log handling utilities
+log-parser==2.3
+# MCP Server SDK
+mcp==1.2.1

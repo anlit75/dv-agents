@@ -1,1 +1,98 @@
 # dv-agents
+
+## Overview
+This repository contains a fully self-contained, offline-ready Docker image (`dv-agent`) that hosts a Multi-Agent system for Semiconductor Design Verification (DV) powered by LangGraph.
+
+## Offline Installation & Usage
+
+1. **Load the Docker Image**
+   Once you have downloaded the `dv-agent.tar.gz` artifact from the CI/CD pipeline, extract it and load it into your local Docker environment:
+
+   ```bash
+   gunzip dv-agent.tar.gz
+   docker load -i dv-agent.tar
+   ```
+
+2. **Run the Agent**
+   To start the container, you need to provide the local LLM model (OpenAI-compatible) endpoint. Set the `LOCAL_API_URL`, `LOCAL_API_KEY`, and `LOCAL_MODEL_NAME` environment variables.
+
+   ```bash
+   docker run -it --rm \
+     -e LOCAL_API_URL="http://your-local-llm-ip:port/v1" \
+     -e LOCAL_API_KEY="EMPTY" \
+     -e LOCAL_MODEL_NAME="local-model" \
+     dv-agent
+   ```
+
+   **Using a `.env` file:**
+   Instead of passing environment variables individually, copy the `.env.example` to `.env` and use the `--env-file` flag:
+   ```bash
+   docker run -it --rm \
+     --env-file .env \
+     dv-agent
+   ```
+
+   **Mounting Workspaces & Prompts:**
+   If you have project files or simulation scripts you need the agent to interact with, you can mount them as a volume.
+   Additionally, you can mount your local `prompts/` directory into the container. Because `agent_bridge.py` dynamically loads the prompts on every invocation (rather than globally caching them), any changes you make to the local prompt files will take effect immediately for the next agent task without needing to restart the container:
+
+   ```bash
+   docker run -it --rm \
+     --env-file .env \
+     -v /path/to/your/dv/project:/workspace \
+     -v $(pwd)/prompts:/app/prompts \
+     dv-agent
+   ```
+
+## Customizing Agents
+
+The agent behaviors, roles, and expertise are defined in separate prompt template files located in the `prompts/` directory.
+
+To customize an agent's instructions:
+1. Edit the corresponding `.txt` file (e.g., `prompts/coder_agent.txt`) in your local workstation.
+2. Because the agent dynamically reads the files (see the `Mounting Workspaces & Prompts` command above), changes will be instantly applied.
+3. Ensure the prompt explicitly instructs the LLM to return data in the required JSON format.
+4. The `agent_bridge.py` script uses robust regex parsing to extract the JSON payload, even if the LLM wraps it in markdown code blocks (` ```json ... ``` `).
+
+## Offline Testing & Smoke Tests
+
+If the local LLM endpoint is unreachable (e.g., during the CI/CD pipeline build), the agents will gracefully catch the connection error and fall back to returning mocked JSON data. This ensures the LangGraph cyclic workflow (Analyze -> Generate -> Simulate -> Debug -> Verify) can be continuously smoke-tested in complete isolation.
+
+## Integration with OpenCode (MCP Server)
+
+The `dv-agent` is fully compliant with the **Model Context Protocol (MCP)** and acts as an MCP server. This allows AI clients like **OpenCode** to consume the agent's logic as a high-level tool while acting as the primary File System operator and User Interface.
+
+### The "UI vs. Logic" Separation
+When executed via OpenCode, the MCP server enforces strict logical boundaries:
+- **LangGraph (MCP Server):** Handles heavy multi-agent orchestration, UVM coverage gap mapping, and simulation log analysis.
+- **OpenCode (MCP Client/UI):** Handles actual reading and writing of files to disk. The MCP tool returns structured suggestions (e.g., "I have generated sequence `workspace/new_seq.sv`") which OpenCode displays in its UI for human approval.
+
+### Configuration
+To register this MCP server in OpenCode, add the following to your `settings.json` (or equivalent MCP configuration file):
+
+```json
+{
+  "mcpServers": {
+    "dv-agent": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--env-file",
+        "/absolute/path/to/your/.env",
+        "-v",
+        "/absolute/path/to/your/dv/project:/workspace",
+        "dv-agent"
+      ]
+    }
+  }
+}
+```
+*(Note: Use absolute paths in the volume mount and env-file locations)*
+
+### Trigger Instructions
+Once registered, you can invoke the DV workflow directly in the OpenCode chat interface:
+> `@dv-agent analyze the coverage report cov.xml for module axi_interconnect`
+
+OpenCode will call the `run_dv_verification` tool to initiate the iterative sequence generation and simulation loop, streaming progress back to your UI before asking for approval to write the generated "Non-Intrusive" UVM sequences to your local workspace.

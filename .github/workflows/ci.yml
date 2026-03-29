@@ -1,0 +1,41 @@
+name: DV-Agent CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build_and_export:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: |
+          docker build -t dv-agent:latest .
+
+      - name: Smoke Test Image
+        run: |
+          docker run --rm dv-agent:latest
+
+      - name: Export Docker Image to Tar
+        run: |
+          docker save dv-agent:latest > dv-agent.tar
+
+      - name: Compress Tar Archive
+        run: |
+          gzip dv-agent.tar
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dv-agent-image
+          path: dv-agent.tar.gz
+          retention-days: 7
