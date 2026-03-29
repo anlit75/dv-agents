@@ -92,7 +92,12 @@ To register this MCP server in OpenCode, add the following to your `settings.jso
 *(Note: Use absolute paths in the volume mount and env-file locations)*
 
 ### Trigger Instructions
-Once registered, you can invoke the DV workflow directly in the OpenCode chat interface:
-> `@dv-agent analyze the coverage report cov.xml for module axi_interconnect`
+Once registered, you can invoke the DV workflow loops directly in the OpenCode chat interface using the `@dv-agent` command.
 
-OpenCode will call the `run_dv_verification` tool to initiate the iterative sequence generation and simulation loop, streaming progress back to your UI before asking for approval to write the generated "Non-Intrusive" UVM sequences to your local workspace.
+For example, to start the Dev Loop:
+> `@dv-agent start dev-loop for module axi_interconnect`
+
+To start the Debug Loop with an existing simulation log:
+> `@dv-agent debug log=sim.log for module axi_interconnect`
+
+OpenCode will call the `run_dv_loop` tool to initiate the iterative sequence generation and simulation loop, streaming progress back to your UI before asking for approval to write the generated "Non-Intrusive" UVM sequences to your local workspace.

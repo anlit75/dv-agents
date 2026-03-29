@@ -9,3 +9,4 @@ cocotb==1.8.1
 log-parser==2.3
 # MCP Server SDK
 mcp==1.2.1
+fastmcp==3.1.1
