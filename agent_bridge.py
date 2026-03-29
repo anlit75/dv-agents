@@ -4,8 +4,10 @@ import logging
 from typing import TypedDict, Annotated, List, Dict, Any
 
 from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
 from langgraph.graph import StateGraph, END
 import operator
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,59 +40,136 @@ class DVState(TypedDict):
     status: str
     messages: Annotated[list, operator.add]
 
+# Utility to load prompt templates
+def load_prompt_template(agent_name: str) -> PromptTemplate:
+    prompt_path = os.path.join("prompts", f"{agent_name}.txt")
+    try:
+        with open(prompt_path, "r") as f:
+            template_str = f.read()
+            return PromptTemplate.from_template(template_str)
+    except Exception as e:
+        logger.error(f"Failed to load prompt for {agent_name}: {e}")
+        return PromptTemplate.from_template("Fallback prompt for {target_module}")
+
+def parse_json_from_llm(text: str) -> dict:
+    """Robustly extracts JSON from an LLM response string."""
+    try:
+        # Check if the output is wrapped in ```json ... ```
+        match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+        # If no code blocks, attempt to parse the entire string
+        return json.loads(text)
+    except Exception as e:
+        logger.error(f"Failed to parse JSON from LLM: {e}")
+        return {}
+
+
 # 2. Define Node Functions (Agent Roles)
 
 def architect_agent(state: DVState) -> DVState:
     """Architect_Agent: UVM structure analysis."""
-    logger.info("Architect Agent: Analyzing UVM structure...")
-    new_message = {"role": "system", "content": "Architect Agent executed."}
+    logger.info(f"Architect Agent: Analyzing UVM structure for module {state.get('target_module')}...")
+    prompt = load_prompt_template("architect_agent")
+
+    try:
+        chain = prompt | llm
+        response = chain.invoke({"target_module": state.get("target_module", "unknown")})
+        parsed_res = parse_json_from_llm(response.content)
+        analysis_msg = parsed_res.get("analysis", "Fallback architect analysis.")
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        analysis_msg = "Mock Architect Agent executed."
+
+    new_message = {"role": "system", "content": analysis_msg}
     return {"messages": [new_message]}
 
 def coverage_agent(state: DVState) -> DVState:
     """Coverage_Agent: Coverage report parsing and pattern gap analysis."""
-    logger.info("Coverage Agent: Parsing coverage report and identifying gaps...")
-    # Simulate gap identification
-    gaps = ["gap_in_axi_write_burst", "missing_read_after_write"]
+    logger.info(f"Coverage Agent: Parsing coverage report {state.get('coverage_report')}...")
+    prompt = load_prompt_template("coverage_agent")
 
-    new_message = {"role": "system", "content": f"Coverage Agent found gaps: {gaps}"}
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "target_module": state.get("target_module", "unknown"),
+            "coverage_report": state.get("coverage_report", "empty")
+        })
+        parsed_res = parse_json_from_llm(response.content)
+        gaps = parsed_res.get("identified_gaps", ["gap_in_axi_write_burst"])
+        msg = f"Coverage Agent found gaps: {gaps}"
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        gaps = ["gap_in_axi_write_burst", "missing_read_after_write"]
+        msg = f"Mock Coverage Agent found gaps: {gaps}"
+
+    new_message = {"role": "system", "content": msg}
     return {"identified_gaps": gaps, "messages": [new_message]}
 
 def coder_agent(state: DVState) -> DVState:
-    """
-    Coder_Agent: SV/UVM code generation.
-    Must adhere to "Non-Intrusive UVM Strategy": prioritizes creating UVM extensions
-    and factory overrides rather than modifying legacy RTL/TB code.
-    """
-    logger.info("Coder Agent: Generating sequences/patterns to close coverage gaps...")
+    """Coder_Agent: SV/UVM code generation."""
+    logger.info(f"Coder Agent: Generating sequences for gaps {state.get('identified_gaps')}...")
+    prompt = load_prompt_template("coder_agent")
     gaps = state.get("identified_gaps", [])
-    sequences = []
 
-    for gap in gaps:
-        sequences.append(f"uvm_sequence_for_{gap}")
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "target_module": state.get("target_module", "unknown"),
+            "identified_gaps": str(gaps)
+        })
+        parsed_res = parse_json_from_llm(response.content)
+        sequences = parsed_res.get("generated_sequences", [f"uvm_sequence_for_{g}" for g in gaps])
+        msg = "Coder Agent generated new UVM extensions."
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        sequences = [f"uvm_sequence_for_{g}" for g in gaps]
+        msg = "Mock Coder Agent generated new UVM extensions & factory overrides."
 
-    new_message = {"role": "system", "content": "Coder Agent generated new UVM extensions & factory overrides."}
+    new_message = {"role": "system", "content": msg}
     return {"generated_sequences": sequences, "messages": [new_message]}
 
 def script_agent(state: DVState) -> DVState:
-    """Script_Agent: Python code generation (if needed for auxiliary tooling)."""
-    logger.info("Script Agent: Generating auxiliary Python scripts...")
-    new_message = {"role": "system", "content": "Script Agent executed."}
+    """Script_Agent: Python code generation."""
+    logger.info(f"Script Agent: Generating auxiliary Python scripts for {state.get('target_module')}...")
+    prompt = load_prompt_template("script_agent")
+
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "target_module": state.get("target_module", "unknown"),
+            "project_path": state.get("project_path", "./")
+        })
+        parsed_res = parse_json_from_llm(response.content)
+        msg = parsed_res.get("script_purpose", "Script Agent executed.")
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        msg = "Mock Script Agent executed."
+
+    new_message = {"role": "system", "content": msg}
     return {"messages": [new_message]}
 
 def sim_runner_agent(state: DVState) -> DVState:
     """Sim_Runner_Agent: Shell integration for VCS/Xcelium/Verilator."""
-    logger.info("Sim Runner Agent: Executing simulation...")
-    # Simulate simulation execution
-    sequences = state.get("generated_sequences", [])
-
-    # In a real scenario, this would execute a shell command and capture the output.
-    # We simulate a successful run but with a UVM error to trigger the debug flow.
-    sim_logs = "UVM_INFO: Starting simulation...\nUVM_ERROR: [SEQ_ERR] Sequence failed to execute properly.\nUVM_INFO: Simulation finished."
-
-    # After some fix attempts, we simulate success
+    logger.info(f"Sim Runner Agent: Executing simulation for {state.get('generated_sequences')}...")
+    prompt = load_prompt_template("sim_runner_agent")
     fix_attempts = state.get("fix_attempts", 0)
-    if fix_attempts > 0:
-        sim_logs = "UVM_INFO: Starting simulation...\nUVM_INFO: Simulation finished successfully."
+
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "target_module": state.get("target_module", "unknown"),
+            "project_path": state.get("project_path", "./"),
+            "generated_sequences": str(state.get("generated_sequences", []))
+        })
+        parsed_res = parse_json_from_llm(response.content)
+        sim_logs = parsed_res.get("simulation_logs", "UVM_INFO: Simulating...")
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        if fix_attempts > 0:
+            sim_logs = "UVM_INFO: Starting simulation...\nUVM_INFO: Simulation finished successfully."
+        else:
+            sim_logs = "UVM_INFO: Starting simulation...\nUVM_ERROR: [SEQ_ERR] Sequence failed to execute properly.\nUVM_INFO: Simulation finished."
 
     new_message = {"role": "system", "content": "Sim Runner Agent executed simulation."}
     return {"simulation_logs": sim_logs, "messages": [new_message]}
@@ -98,12 +177,23 @@ def sim_runner_agent(state: DVState) -> DVState:
 def debug_agent(state: DVState) -> DVState:
     """Debug_Agent: Log/Waveform text analysis."""
     logger.info("Debug Agent: Analyzing simulation logs for UVM errors...")
+    prompt = load_prompt_template("debug_agent")
     logs = state.get("simulation_logs", "")
-    errors = []
 
-    for line in logs.split("\n"):
-        if "UVM_ERROR" in line or "UVM_FATAL" in line:
-            errors.append(line)
+    try:
+        chain = prompt | llm
+        response = chain.invoke({
+            "target_module": state.get("target_module", "unknown"),
+            "simulation_logs": logs
+        })
+        parsed_res = parse_json_from_llm(response.content)
+        errors = parsed_res.get("uvm_errors", [])
+    except Exception as e:
+        logger.warning(f"LLM call failed, using mock data: {e}")
+        errors = []
+        for line in logs.split("\n"):
+            if "UVM_ERROR" in line or "UVM_FATAL" in line:
+                errors.append(line)
 
     fix_attempts = state.get("fix_attempts", 0) + 1
 
