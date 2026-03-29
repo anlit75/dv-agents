@@ -193,7 +193,10 @@ def debug_agent(state: DVState) -> DVState:
         errors = parsed_res.get("uvm_errors", [])
     except Exception as e:
         logger.warning(f"LLM call failed, using mock data: {e}")
-        errors = ["Mock UVM_ERROR: Timeout"]
+        errors = []
+        for line in logs.split("\n"):
+            if "UVM_ERROR" in line or "UVM_FATAL" in line:
+                errors.append(line)
 
     fix_attempts = state.get("fix_attempts", 0) + 1
 
