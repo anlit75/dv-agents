@@ -9,8 +9,8 @@ COPY requirements.txt .
 # Install dependencies and clear pip cache to optimize image size
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application files
-COPY . .
+# Copy the application script
+COPY agent_bridge.py .
 
 # Ensure agent_bridge.py is executable
 RUN chmod +x agent_bridge.py

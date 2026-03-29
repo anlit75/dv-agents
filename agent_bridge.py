@@ -1,21 +1,26 @@
 import os
 import json
+import logging
 from typing import TypedDict, Annotated, List, Dict, Any
 
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
 from langgraph.graph import StateGraph, END
 import operator
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Configure LLM based on environment variables for offline/local API URL
 # Fallback to localhost if not provided
 local_api_url = os.environ.get("LOCAL_API_URL", "http://localhost:8080/v1")
-local_api_key = os.environ.get("LOCAL_API_KEY", "dummy-key-for-local")
+local_api_key = os.environ.get("LOCAL_API_KEY", "EMPTY")
+local_model_name = os.environ.get("LOCAL_MODEL_NAME", "local-model")
 
 llm = ChatOpenAI(
     base_url=local_api_url,
     api_key=local_api_key,
-    model="local-model", # Set your target model
+    model=local_model_name, # Set your target model
     temperature=0
 )
 
@@ -37,13 +42,13 @@ class DVState(TypedDict):
 
 def architect_agent(state: DVState) -> DVState:
     """Architect_Agent: UVM structure analysis."""
-    print(">>> Architect Agent: Analyzing UVM structure...")
+    logger.info("Architect Agent: Analyzing UVM structure...")
     new_message = {"role": "system", "content": "Architect Agent executed."}
     return {"messages": [new_message]}
 
 def coverage_agent(state: DVState) -> DVState:
     """Coverage_Agent: Coverage report parsing and pattern gap analysis."""
-    print(">>> Coverage Agent: Parsing coverage report and identifying gaps...")
+    logger.info("Coverage Agent: Parsing coverage report and identifying gaps...")
     # Simulate gap identification
     gaps = ["gap_in_axi_write_burst", "missing_read_after_write"]
 
@@ -56,7 +61,7 @@ def coder_agent(state: DVState) -> DVState:
     Must adhere to "Non-Intrusive UVM Strategy": prioritizes creating UVM extensions
     and factory overrides rather than modifying legacy RTL/TB code.
     """
-    print(">>> Coder Agent: Generating sequences/patterns to close coverage gaps...")
+    logger.info("Coder Agent: Generating sequences/patterns to close coverage gaps...")
     gaps = state.get("identified_gaps", [])
     sequences = []
 
@@ -68,13 +73,13 @@ def coder_agent(state: DVState) -> DVState:
 
 def script_agent(state: DVState) -> DVState:
     """Script_Agent: Python code generation (if needed for auxiliary tooling)."""
-    print(">>> Script Agent: Generating auxiliary Python scripts...")
+    logger.info("Script Agent: Generating auxiliary Python scripts...")
     new_message = {"role": "system", "content": "Script Agent executed."}
     return {"messages": [new_message]}
 
 def sim_runner_agent(state: DVState) -> DVState:
     """Sim_Runner_Agent: Shell integration for VCS/Xcelium/Verilator."""
-    print(">>> Sim Runner Agent: Executing simulation...")
+    logger.info("Sim Runner Agent: Executing simulation...")
     # Simulate simulation execution
     sequences = state.get("generated_sequences", [])
 
@@ -92,7 +97,7 @@ def sim_runner_agent(state: DVState) -> DVState:
 
 def debug_agent(state: DVState) -> DVState:
     """Debug_Agent: Log/Waveform text analysis."""
-    print(">>> Debug Agent: Analyzing simulation logs for UVM errors...")
+    logger.info("Debug Agent: Analyzing simulation logs for UVM errors...")
     logs = state.get("simulation_logs", "")
     errors = []
 
@@ -107,7 +112,7 @@ def debug_agent(state: DVState) -> DVState:
 
 def verifier_node(state: DVState) -> DVState:
     """Verifier logic to check if fixes resolved the issue."""
-    print(">>> Verifier: Checking if fixes were successful...")
+    logger.info("Verifier: Checking if fixes were successful...")
     errors = state.get("uvm_errors", [])
     if not errors:
         status = "PASSED"
@@ -125,7 +130,7 @@ def router_debug(state: DVState) -> str:
         return "end"
 
     if state.get("fix_attempts", 0) >= state.get("max_fix_attempts", 3):
-        print(">>> MAX RETRIES REACHED. Exiting workflow.")
+        logger.warning("MAX RETRIES REACHED. Exiting workflow.")
         return "end"
 
     return "coder_agent"
@@ -180,7 +185,7 @@ def build_dv_graph():
     return app
 
 if __name__ == "__main__":
-    print("=== DV-Agent Initializing ===")
+    logger.info("=== DV-Agent Initializing ===")
     dv_graph = build_dv_graph()
 
     # Test execution / smoke test
@@ -198,11 +203,11 @@ if __name__ == "__main__":
         "messages": []
     }
 
-    print("=== DV-Agent Graph Compilation Successful ===")
-    print("=== Starting Smoke Test Execution ===")
+    logger.info("=== DV-Agent Graph Compilation Successful ===")
+    logger.info("=== Starting Smoke Test Execution ===")
 
     for s in dv_graph.stream(initial_state):
         node_name = list(s.keys())[0]
-        print(f"--- Completed Node: {node_name} ---")
+        logger.info(f"--- Completed Node: {node_name} ---")
 
-    print("=== Smoke Test Complete ===")
+    logger.info("=== Smoke Test Complete ===")
