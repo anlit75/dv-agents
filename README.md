@@ -14,21 +14,33 @@ This repository contains a fully self-contained, offline-ready Docker image (`dv
    ```
 
 2. **Run the Agent**
-   To start the container, you need to provide the local LLM model (OpenAI-compatible) endpoint. Set the `LOCAL_API_URL` environment variable to point to your local endpoint. If an API key is required, set `LOCAL_API_KEY` as well.
+   To start the container, you need to provide the local LLM model (OpenAI-compatible) endpoint. Set the `LOCAL_API_URL`, `LOCAL_API_KEY`, and `LOCAL_MODEL_NAME` environment variables.
 
    ```bash
    docker run -it --rm \
      -e LOCAL_API_URL="http://your-local-llm-ip:port/v1" \
-     -e LOCAL_API_KEY="your-api-key" \
+     -e LOCAL_API_KEY="EMPTY" \
+     -e LOCAL_MODEL_NAME="local-model" \
      dv-agent
    ```
 
-   If you have project files or simulation scripts you need the agent to interact with, you can mount them as a volume:
+   **Using a `.env` file:**
+   Instead of passing environment variables individually, copy the `.env.example` to `.env` and use the `--env-file` flag:
    ```bash
    docker run -it --rm \
-     -e LOCAL_API_URL="http://your-local-llm-ip:port/v1" \
-     -e LOCAL_API_KEY="your-api-key" \
+     --env-file .env \
+     dv-agent
+   ```
+
+   **Mounting Workspaces & Prompts:**
+   If you have project files or simulation scripts you need the agent to interact with, you can mount them as a volume.
+   Additionally, you can mount your local `prompts/` directory into the container. Because `agent_bridge.py` dynamically loads the prompts on every invocation (rather than globally caching them), any changes you make to the local prompt files will take effect immediately for the next agent task without needing to restart the container:
+
+   ```bash
+   docker run -it --rm \
+     --env-file .env \
      -v /path/to/your/dv/project:/workspace \
+     -v $(pwd)/prompts:/app/prompts \
      dv-agent
    ```
 
@@ -37,9 +49,10 @@ This repository contains a fully self-contained, offline-ready Docker image (`dv
 The agent behaviors, roles, and expertise are defined in separate prompt template files located in the `prompts/` directory.
 
 To customize an agent's instructions:
-1. Edit the corresponding `.txt` file (e.g., `prompts/coder_agent.txt`).
-2. Ensure the prompt explicitly instructs the LLM to return data in the required JSON format.
-3. The `agent_bridge.py` script dynamically loads these files at runtime and uses robust regex parsing to extract the JSON payload, even if it is wrapped in markdown code blocks (` ```json ... ``` `).
+1. Edit the corresponding `.txt` file (e.g., `prompts/coder_agent.txt`) in your local workstation.
+2. Because the agent dynamically reads the files (see the `Mounting Workspaces & Prompts` command above), changes will be instantly applied.
+3. Ensure the prompt explicitly instructs the LLM to return data in the required JSON format.
+4. The `agent_bridge.py` script uses robust regex parsing to extract the JSON payload, even if the LLM wraps it in markdown code blocks (` ```json ... ``` `).
 
 ## Offline Testing & Smoke Tests
 
