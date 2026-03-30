@@ -1,11 +1,16 @@
 import asyncio
 import logging
+import sys
 import json
 from mcp.server.fastmcp import FastMCP
 from agent_bridge import build_dv_graph
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
 logger = logging.getLogger(__name__)
 
 # Initialize FastMCP Server
@@ -59,15 +64,15 @@ async def run_dv_loop(
     progress_updates = []
     final_state = initial_state.copy()
 
-    # Stream the LangGraph execution
-    for s in dv_graph.stream(initial_state):
+    # Stream the LangGraph execution asynchronously
+    async for s in dv_graph.astream(initial_state):
         node_name = list(s.keys())[0]
         update_msg = f"Completed Node: {node_name}"
         logger.info(update_msg)
         progress_updates.append(update_msg)
 
         # Stream progress back to the MCP Client
-        ctx.info(update_msg)
+        await ctx.info(update_msg)
 
         # Accumulate the state changes from the stream
         final_state.update(s[node_name])
