@@ -28,6 +28,7 @@ llm = ChatOpenAI(
 
 # 1. Define State Schema
 class DVState(TypedDict):
+    mode: str
     project_path: str
     target_module: str
     coverage_report: str
@@ -115,6 +116,7 @@ def coder_agent(state: DVState) -> DVState:
     try:
         chain = prompt | llm
         response = chain.invoke({
+            "mode": state.get("mode", "dev"),
             "target_module": state.get("target_module", "unknown"),
             "identified_gaps": str(gaps)
         })
@@ -183,6 +185,7 @@ def debug_agent(state: DVState) -> DVState:
     try:
         chain = prompt | llm
         response = chain.invoke({
+            "mode": state.get("mode", "dev"),
             "target_module": state.get("target_module", "unknown"),
             "simulation_logs": logs
         })
@@ -204,7 +207,12 @@ def verifier_node(state: DVState) -> DVState:
     """Verifier logic to check if fixes resolved the issue."""
     logger.info("Verifier: Checking if fixes were successful...")
     errors = state.get("uvm_errors", [])
-    if not errors:
+
+    # In mock context, ensure it eventually passes to prevent infinite loop.
+    fix_attempts = state.get("fix_attempts", 0)
+    if fix_attempts >= state.get("max_fix_attempts", 3):
+        status = "FAILED"
+    elif not errors:
         status = "PASSED"
     else:
         status = "FAILED"
@@ -214,14 +222,29 @@ def verifier_node(state: DVState) -> DVState:
 
 # 3. Construct Workflow
 
+def input_router(state: DVState) -> str:
+    """Routes the initial execution based on the operation mode."""
+    mode = state.get("mode", "dev")
+    if mode == "debug":
+        return "debug_agent"
+    elif mode == "coverage":
+        return "architect_agent"
+    else: # default to dev
+        return "coder_agent"
+
 def router_debug(state: DVState) -> str:
-    """Router logic for debug loop."""
+    """Router logic for the verification loop."""
+    logger.info(f"Router Debug: status={state.get('status')}, fix_attempts={state.get('fix_attempts', 0)}")
     if state.get("status") == "PASSED":
         return "end"
 
     if state.get("fix_attempts", 0) >= state.get("max_fix_attempts", 3):
         logger.warning("MAX RETRIES REACHED. Exiting workflow.")
         return "end"
+
+    mode = state.get("mode", "dev")
+    if mode == "debug":
+        return "debug_agent"
 
     return "coder_agent"
 
@@ -238,9 +261,17 @@ def build_dv_graph():
     workflow.add_node("debug_agent", debug_agent)
     workflow.add_node("verifier_node", verifier_node)
 
-    # Build Edges (Closed-Loop Workflow Logic)
-    # Analyze Coverage -> Generate Sequence/Pattern -> Execute Simulation -> Parse Logs -> If UVM_ERROR: Debug & Fix -> Verify Fix
-    workflow.set_entry_point("architect_agent")
+    # Build Edges (Multi-Loop Workflow Logic)
+
+    # Conditional Entry Point based on mode
+    workflow.set_conditional_entry_point(
+        input_router,
+        {
+            "architect_agent": "architect_agent",
+            "coder_agent": "coder_agent",
+            "debug_agent": "debug_agent"
+        }
+    )
 
     # Architect -> Script Agent (Auxiliary Tooling Init)
     workflow.add_edge("architect_agent", "script_agent")
@@ -255,17 +286,54 @@ def build_dv_graph():
     workflow.add_edge("coder_agent", "sim_runner_agent")
 
     # Simulation -> Debug Agent
-    workflow.add_edge("sim_runner_agent", "debug_agent")
+    # In Debug loop, debug_agent goes to coder, then sim, then verifier.
+    # We will adjust edges to conditionally route after sim if in debug mode, or just use general flow:
+    # Let's map out:
+    # For Dev Loop: coder -> sim -> debug -> verifier -> router(coder or END)
+    # For Debug Loop: debug -> coder -> sim -> verifier -> router(debug or END)
+    # For Coverage Loop: architect -> script -> cov -> coder -> sim -> debug -> verifier -> router(coder or END)
 
-    # Debug Agent -> Verifier
-    workflow.add_edge("debug_agent", "verifier_node")
+    # In Debug loop, debug_agent goes to coder, then sim, then verifier.
+    # In Dev loop, coder goes to sim, then debug, then verifier.
 
-    # Verifier -> Conditional (If Failed & Retries < Max -> Coder; Else -> END)
+    def post_sim_router(state: DVState) -> str:
+        mode = state.get("mode", "dev")
+        if mode == "debug":
+            return "verifier_node"
+        return "debug_agent"
+
+    def post_debug_router(state: DVState) -> str:
+        mode = state.get("mode", "dev")
+        if mode == "debug":
+            return "coder_agent"
+        return "verifier_node"
+
+    # Remove simple edges, use conditional edges where paths diverge
+    workflow.add_conditional_edges(
+        "sim_runner_agent",
+        post_sim_router,
+        {
+            "verifier_node": "verifier_node",
+            "debug_agent": "debug_agent"
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "debug_agent",
+        post_debug_router,
+        {
+            "coder_agent": "coder_agent",
+            "verifier_node": "verifier_node"
+        }
+    )
+
+    # Verifier -> Conditional (If Failed & Retries < Max -> back to loop start; Else -> END)
     workflow.add_conditional_edges(
         "verifier_node",
         router_debug,
         {
             "coder_agent": "coder_agent",
+            "debug_agent": "debug_agent",
             "end": END
         }
     )
@@ -280,6 +348,7 @@ if __name__ == "__main__":
 
     # Test execution / smoke test
     initial_state = {
+        "mode": "dev",
         "project_path": "/workspace",
         "target_module": "axi_interconnect",
         "coverage_report": "cov.xml",
@@ -296,7 +365,7 @@ if __name__ == "__main__":
     logger.info("=== DV-Agent Graph Compilation Successful ===")
     logger.info("=== Starting Smoke Test Execution ===")
 
-    for s in dv_graph.stream(initial_state):
+    for s in dv_graph.stream(initial_state, {"recursion_limit": 50}):
         node_name = list(s.keys())[0]
         logger.info(f"--- Completed Node: {node_name} ---")
 

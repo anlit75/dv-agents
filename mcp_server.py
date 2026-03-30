@@ -14,10 +14,11 @@ mcp = FastMCP("DV-Agent MCP Server")
 from mcp.server.fastmcp import Context
 
 @mcp.tool()
-async def run_dv_verification(
+async def run_dv_loop(
+    mode: str,
     project_path: str,
     target_module: str,
-    coverage_report_path: str,
+    context_data: dict,
     ctx: Context,
     max_retries: int = 3
 ) -> str:
@@ -26,24 +27,26 @@ async def run_dv_verification(
     generate "Non-Intrusive" UVM sequences, simulate, and debug iteratively.
 
     Args:
+        mode: The operational mode ('dev', 'debug', 'coverage').
         project_path: The absolute path to the DV workspace.
         target_module: The specific Verilog/SystemVerilog module to verify.
-        coverage_report_path: Path to the functional coverage report (e.g., cov.xml).
+        context_data: Dictionary containing contextual data (e.g. simulation_logs, coverage_report).
         max_retries: Maximum number of iterative debug/fix attempts.
 
     Returns:
         A formatted string containing structured suggestions of generated files
         and the final status of the verification loop.
     """
-    logger.info(f"Received MCP request for {target_module} at {project_path}")
+    logger.info(f"Received MCP request for {target_module} at {project_path} in {mode} mode")
 
     initial_state = {
+        "mode": mode,
         "project_path": project_path,
         "target_module": target_module,
-        "coverage_report": coverage_report_path,
+        "coverage_report": context_data.get("coverage_report", ""),
         "identified_gaps": [],
         "generated_sequences": [],
-        "simulation_logs": "",
+        "simulation_logs": context_data.get("simulation_logs", ""),
         "uvm_errors": [],
         "fix_attempts": 0,
         "max_fix_attempts": max_retries,
