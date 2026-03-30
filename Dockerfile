@@ -18,4 +18,4 @@ COPY prompts/ ./prompts/
 RUN chmod +x agent_bridge.py mcp_server.py
 
 # Run the MCP Server via stdio by default
-ENTRYPOINT ["python3", "mcp_server.py"]
+ENTRYPOINT ["python3", "-u", "mcp_server.py"]
