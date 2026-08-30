@@ -142,7 +142,7 @@ Knowledge-learning pass.
 `.trim();
 }
 
-export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
+export const DVAgentPlugin = async ({ client, $, directory }) => {
   await ensureKnowledgeRepository(directory);
 
   // Check pending on startup
@@ -157,6 +157,25 @@ export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
 
   return {
     "tool.execute.before": async (input, output) => {
+      // ----------------------------------------------------------------------
+      // DEBUG DUMP: Validating OpenCode API runtime context (ADR preparation)
+      // ----------------------------------------------------------------------
+      try {
+        await client.app.log({
+          body: {
+            service: "dv-agent-plugin",
+            level: "debug",
+            message: "DEBUG: tool.execute.before context dump",
+            extra: { input, output },
+          },
+        });
+      } catch (e) {
+        // Fallback if client.app.log is unavailable
+        console.log("=== DEBUG: tool.execute.before ===");
+        console.log("INPUT:", JSON.stringify(input, null, 2));
+        console.log("==================================");
+      }
+
       if (isRtlToolInvocation(input, output?.args)) {
         throw new Error(
           "DV Agent policy violation: RTL access is forbidden. " +
@@ -201,4 +220,4 @@ export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
   };
 };
 
-export default KnowledgeLearningPlugin;
+export default DVAgentPlugin;

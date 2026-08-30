@@ -3,7 +3,7 @@ import test from "node:test";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { KnowledgeLearningPlugin } from "../plugins/knowledge-learning-plugin.js";
+import { DVAgentPlugin } from "../plugins/dv-agent-plugin.js";
 
 test("plugin triggers notifications when new candidates are created", async () => {
   // Setup temp directory
@@ -42,7 +42,7 @@ test("plugin triggers notifications when new candidates are created", async () =
   };
 
   try {
-    const plugin = await KnowledgeLearningPlugin({
+    const plugin = await DVAgentPlugin({
       client: mockClient,
       $: mock$,
       directory: tmpDir
@@ -84,7 +84,7 @@ test("plugin warns on startup if candidates already exist", async () => {
   const mock$ = async () => ({ quiet: () => {} });
 
   try {
-    await KnowledgeLearningPlugin({
+    await DVAgentPlugin({
       client: mockClient,
       $: mock$,
       directory: tmpDir

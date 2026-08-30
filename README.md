@@ -7,7 +7,7 @@ DV Agent Knowledge system for OpenCode.
 1. **PWD-scoped Knowledge**: Stores knowledge at `$PWD/.knowledge/`
 2. **Knowledge Repository**: Structured directories (`knowledge/`, `sources/`, `candidates/`)
 3. **Skills**: `knowledge-learning` and `knowledge-review`
-4. **Plugin**: `knowledge-learning-plugin.js`
+4. **Plugin**: `dv-agent-plugin.js`
 5. **RTL Guard**: Blocks RTL access during OpenCode tool execution
 6. **Automation**: Triggers Knowledge-learning on `session.idle`
 7. **Notifications**: TUI and OS notifications for pending review queues
@@ -20,7 +20,7 @@ DV Agent Knowledge system for OpenCode.
 PWD/
 ├── .opencode/
 │   ├── plugins/
-│   │   └── knowledge-learning-plugin.js
+│   │   └── dv-agent-plugin.js
 │   └── skills/
 │       ├── knowledge-learning/
 │       └── knowledge-review/
@@ -38,7 +38,7 @@ Link the plugin and skills into your OpenCode project directory:
 ```bash
 mkdir -p $PWD/.opencode/plugins $PWD/.opencode/skills
 
-ln -s /path/to/dv-agent/plugins/knowledge-learning-plugin.js $PWD/.opencode/plugins/
+ln -s /path/to/dv-agent/plugins/dv-agent-plugin.js $PWD/.opencode/plugins/
 ln -s /path/to/dv-agent/skills/knowledge-learning $PWD/.opencode/skills/
 ln -s /path/to/dv-agent/skills/knowledge-review $PWD/.opencode/skills/
 ```
