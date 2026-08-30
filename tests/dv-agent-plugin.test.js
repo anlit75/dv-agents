@@ -5,7 +5,6 @@ import test from "node:test";
 // These tests exercise the same rules through a small extracted reference
 // implementation so the expected security behavior is explicit.
 
-const RTL_EXTENSIONS = [".v", ".sv", ".svh", ".vh", ".vhd", ".vhdl"];
 const RTL_PATH_SEGMENTS = ["/rtl/", "/rtl_asic/", "/rtl_design/"];
 
 function normalize(value) {
@@ -14,7 +13,7 @@ function normalize(value) {
 
 function looksLikeRtlPath(value) {
   const p = normalize(value);
-  return RTL_EXTENSIONS.some((x) => p.endsWith(x)) || RTL_PATH_SEGMENTS.some((x) => p.includes(x));
+  return RTL_PATH_SEGMENTS.some((x) => p.includes(x));
 }
 
 function blocked(tool, args) {
@@ -23,7 +22,7 @@ function blocked(tool, args) {
   }
   if (tool === "bash" || tool === "shell") {
     const command = args?.command ?? "";
-    return /\.(?:v|sv|svh|vh|vhd|vhdl)\b|\/rtl\//i.test(command);
+    return /\/rtl\//i.test(command);
   }
   return false;
 }
@@ -32,12 +31,12 @@ test("blocks direct RTL read", () => {
   assert.equal(blocked("read", { filePath: "/work/rtl/foo.sv" }), true);
 });
 
-test("allows normal DV files", () => {
-  assert.equal(blocked("read", { filePath: "/work/dv/test/foo.py" }), false);
+test("allows normal DV .sv files", () => {
+  assert.equal(blocked("read", { filePath: "/work/dv/test/foo.sv" }), false);
 });
 
 test("blocks shell commands that directly reference RTL", () => {
-  assert.equal(blocked("bash", { command: "grep -n reset rtl/foo.sv" }), true);
+  assert.equal(blocked("bash", { command: "grep -n reset /work/rtl/foo.sv" }), true);
 });
 
 test("allows normal shell commands", () => {

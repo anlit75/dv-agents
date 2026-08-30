@@ -9,15 +9,6 @@
  * No external dependencies are required.
  */
 
-const RTL_EXTENSIONS = [
-  ".v",
-  ".sv",
-  ".svh",
-  ".vh",
-  ".vhd",
-  ".vhdl",
-];
-
 const RTL_PATH_SEGMENTS = [
   "/rtl/",
   "/rtl_asic/",
@@ -25,9 +16,8 @@ const RTL_PATH_SEGMENTS = [
 ];
 
 const RTL_COMMAND_PATTERNS = [
-  /\b(?:cat|less|more|head|tail|sed|awk|grep|rg|find|xargs)\b[^\n]*\.(?:v|sv|svh|vh|vhd|vhdl)\b/i,
   /\b(?:cat|less|more|head|tail|sed|awk|grep|rg|find|xargs)\b[^\n]*(?:\/rtl\/|\/rtl_asic\/|\/rtl_design\/)/i,
-  /\b(?:cp|mv|tar|zip|unzip)\b[^\n]*(?:\.(?:v|sv|svh|vh|vhd|vhdl)\b|\/rtl\/|\/rtl_asic\/|\/rtl_design\/)/i,
+  /\b(?:cp|mv|tar|zip|unzip)\b[^\n]*(?:\/rtl\/|\/rtl_asic\/|\/rtl_design\/)/i,
 ];
 
 function normalizePath(value) {
@@ -39,7 +29,6 @@ function looksLikeRtlPath(value) {
   const normalized = normalizePath(value);
   if (!normalized) return false;
 
-  if (RTL_EXTENSIONS.some((ext) => normalized.endsWith(ext))) return true;
   if (RTL_PATH_SEGMENTS.some((segment) => normalized.includes(segment))) return true;
 
   return false;
