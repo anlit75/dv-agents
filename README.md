@@ -1,85 +1,57 @@
-# 🤖 DV-Agents
+# DV Agent
 
-Autonomous Multi-Agent Orchestration for Semiconductor Design Verification.
+Minimal first version of the DV Agent Knowledge system for OpenCode.
 
-dv-agents is a self-contained, air-gapped framework designed to automate complex Semiconductor Design Verification (DV) workflows. 
-Powered by LangGraph, it orchestrates specialized agents to handle UVM code generation, log analysis, and coverage closure—all within a secure, offline Docker environment.
+## Scope
 
-## ✨ Key Features
- * 🤖 Multi-Agent Orchestration: Specialized agents (Coder, Analyst, Debugger) working in cyclic LangGraph workflows (Analyze → Generate → Simulate → Verify).
- * 🔒 Privacy-First / Offline Ready: Designed for secure hardware environments with support for local OpenAI-compatible LLM endpoints.
- * 🔌 MCP Native: Fully compliant with the Model Context Protocol, acting as a high-level logic server for AI IDEs like OpenCode.
- * ⚡ Dynamic Hot-Reloading: Modify agent behaviors via local prompt files without restarting the container.
+v0.1.0 implements only:
 
-## 💻 Tech Stack
- * Core Logic: Python, LangGraph (Stateful Orchestration)
- * Deployment: Docker (Self-contained Image)
- * Interface: MCP (Model Context Protocol)
- * Inference: OpenAI-Compatible APIs (vLLM, Ollama, etc.)
+1. PWD-scoped Knowledge at `$PWD/.knowledge/`
+2. Knowledge repository directories: `knowledge/`, `sources/`, `candidates/`
+3. `knowledge-learning` Skill
+4. `dv-agent-plugin`
+5. RTL access guard for OpenCode tool execution
+6. Automatic Knowledge-learning trigger on `session.idle`
 
-## 🚀 Quick Start
-1. Installation (Offline)
-Download the dv-agent.tar.gz artifact from your CI/CD pipeline, then load it:
-```bash
-# Decompress and load the image
-gunzip dv-agent.tar.gz
-docker load -i dv-agent.tar
+The plugin deliberately does not implement a database, embeddings, OpenViking,
+company-wide retrieval, Jira/Teams/Confluence connectors, or cross-workspace
+Knowledge.
+
+## Runtime layout
+
+```text
+PWD/
+├── .opencode/
+│   ├── plugins/
+│   │   └── dv-agent-plugin.js -> central plugin
+│   └── skills/ -> central skills
+│
+└── .knowledge/
+    ├── knowledge/
+    ├── sources/
+    └── candidates/
 ```
 
-2. Configuration
-Create a .env file based on .env.example:
-```bash
-LOCAL_API_URL="http://your-local-llm-ip:port/v1"
-LOCAL_API_KEY="EMPTY"
-LOCAL_MODEL_NAME="your-model-name"
+## Installation
+
+The central deployment system should link the plugin into:
+
+```text
+$PWD/.opencode/plugins/dv-agent-plugin.js
 ```
 
-3. Running the Agent (Standalone)
-Mount your project files and local prompts to enable live updates and agent persistence:
-```bash
-docker run -it --rm \
-  --env-file .env \
-  -v /path/to/dv/project:/workspace \
-  -v $(pwd)/prompts:/app/prompts \
-  dv-agent
+and the Skill into:
+
+```text
+$PWD/.opencode/skills/knowledge-learning/
 ```
 
-> Note: Because agent_bridge.py dynamically loads prompts on each invocation, any changes made to files in prompts/ on your host machine take effect immediately.
-> 
+OpenCode automatically loads local plugins from `.opencode/plugins/`.
 
-## 🤖 Customizing Agent Behavior
-Agent personas and domain expertise are defined in the prompts/ directory.
- * Modify Roles: Edit prompts/coder_agent.txt or prompts/analyst_agent.txt.
- * JSON Enforcement: Ensure prompts instruct the LLM to return structured data. The system uses robust regex parsing to extract payloads even if wrapped in markdown blocks (```json ... ```).
+## Important v0.1.0 limitation
 
-## 🛠️ Integration with OpenCode (MCP)
-dv-agent serves as an MCP Server, separating "Heavy Logic" from "File Operations."
-The "UI vs. Logic" Separation
- * DV-Agent (Server): Orchestrates LangGraph loops, maps UVM coverage gaps, and analyzes simulation logs.
- * OpenCode (Client): Manages the File System and UI. It displays agent suggestions for human approval before writing to disk.
-
-### OpenCode Configuration
-Add this to your settings.json:
-```json
-{
-  "mcpServers": {
-    "dv-agent": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "--env-file", "/abs/path/to/.env",
-        "-v", "/abs/path/to/project:/workspace",
-        "dv-agent"
-      ]
-    }
-  }
-}
-```
-
-### Example Commands
-Trigger complex loops directly from the OpenCode chat:
- * `@dv-agent start dev-loop for module axi_interconnect`
- * `@dv-agent debug log=sim.log for module axi_interconnect`
-
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+The RTL guard is a policy enforcement layer for direct OpenCode tool calls.
+It blocks obvious RTL file/path access and RTL-related shell commands. It cannot
+prove that an arbitrary executable or script will not read RTL internally.
+For a hard security boundary, RTL must also be inaccessible at the OS/filesystem
+permission level.

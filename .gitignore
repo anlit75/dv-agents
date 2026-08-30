@@ -35,10 +35,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Agent local logs & artifacts
-dv-agent.tar
-dv-agent.tar.gz
-
 # IDE / Editor
 .idea/
 .vscode/

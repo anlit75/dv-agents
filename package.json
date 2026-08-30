@@ -1,0 +1,9 @@
+{
+  "name": "dv-agent",
+  "version": "0.1.0",
+  "description": "DV Agent Knowledge-learning Skill and OpenCode runtime plugin",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/dv-agent-plugin.test.js"
+  }
+}

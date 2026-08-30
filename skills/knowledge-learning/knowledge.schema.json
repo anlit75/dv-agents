@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DV Knowledge",
+  "type": "object",
+  "required": ["id", "type", "title", "status", "content", "sources", "owner", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "type": {
+      "enum": ["behavior", "corner-case", "limitation", "known-issue", "designer-qa", "debug", "dv-knowledge"]
+    },
+    "title": { "type": "string" },
+    "status": { "enum": ["confirmed", "contested", "superseded", "obsolete"] },
+    "content": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "ref"],
+        "properties": {
+          "type": { "enum": ["spec", "designer-qa", "jira", "debug", "dv-experience", "session"] },
+          "ref": { "type": "string" },
+          "version": { "type": "string" },
+          "date": { "type": "string" },
+          "author": { "type": "string" },
+          "location": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "owner": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}
