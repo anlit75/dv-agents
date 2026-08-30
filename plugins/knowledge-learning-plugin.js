@@ -107,7 +107,7 @@ Knowledge-learning pass.
 `.trim();
 }
 
-export const DVAgentPlugin = async ({ client, $, directory }) => {
+export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
   await ensureKnowledgeRepository($, directory);
 
   const processedSessions = new Set();

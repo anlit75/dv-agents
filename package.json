@@ -4,6 +4,6 @@
   "description": "DV Agent Knowledge-learning Skill and OpenCode runtime plugin",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/dv-agent-plugin.test.js"
+    "test": "node --test tests/knowledge-learning-plugin.test.js"
   }
 }

@@ -9,7 +9,7 @@ v0.1.0 implements only:
 1. PWD-scoped Knowledge at `$PWD/.knowledge/`
 2. Knowledge repository directories: `knowledge/`, `sources/`, `candidates/`
 3. `knowledge-learning` Skill
-4. `dv-agent-plugin`
+4. `knowledge-learning-plugin`
 5. RTL access guard for OpenCode tool execution
 6. Automatic Knowledge-learning trigger on `session.idle`
 
@@ -23,7 +23,7 @@ Knowledge.
 PWD/
 ├── .opencode/
 │   ├── plugins/
-│   │   └── dv-agent-plugin.js -> central plugin
+│   │   └── knowledge-learning-plugin.js -> central plugin
 │   └── skills/ -> central skills
 │
 └── .knowledge/
@@ -37,7 +37,7 @@ PWD/
 The central deployment system should link the plugin into:
 
 ```text
-$PWD/.opencode/plugins/dv-agent-plugin.js
+$PWD/.opencode/plugins/knowledge-learning-plugin.js
 ```
 
 and the Skill into:

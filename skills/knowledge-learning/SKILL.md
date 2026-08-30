@@ -1,3 +1,9 @@
+---
+name: knowledge-learning
+description: Automatically extracts durable, reusable Design Verification (DV) knowledge from completed sessions and proposes them as Knowledge Candidates for human review. Make sure to use this skill whenever a session goes idle or the user finishes a DV task, or when the user mentions saving knowledge, extracting insights, or updating the shared knowledge base. This skill creates candidates for DUT behavior, corner cases, limitations, and Designer Q&A while strictly prohibiting RTL access.
+version: 0.1.0
+---
+
 # Knowledge Learning Skill
 
 ## Purpose
