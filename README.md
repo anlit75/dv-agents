@@ -1,30 +1,29 @@
 # DV Agent
 
-Minimal first version of the DV Agent Knowledge system for OpenCode.
+DV Agent Knowledge system for OpenCode.
 
-## Scope
+## Features
 
-v0.1.0 implements only:
+1. **PWD-scoped Knowledge**: Stores knowledge at `$PWD/.knowledge/`
+2. **Knowledge Repository**: Structured directories (`knowledge/`, `sources/`, `candidates/`)
+3. **Skills**: `knowledge-learning` and `knowledge-review`
+4. **Plugin**: `knowledge-learning-plugin.js`
+5. **RTL Guard**: Blocks RTL access during OpenCode tool execution
+6. **Automation**: Triggers Knowledge-learning on `session.idle`
+7. **Notifications**: TUI and OS notifications for pending review queues
 
-1. PWD-scoped Knowledge at `$PWD/.knowledge/`
-2. Knowledge repository directories: `knowledge/`, `sources/`, `candidates/`
-3. `knowledge-learning` Skill
-4. `knowledge-learning-plugin`
-5. RTL access guard for OpenCode tool execution
-6. Automatic Knowledge-learning trigger on `session.idle`
+*Note: This system is deliberately minimal and operates purely on the local filesystem. It does not implement databases, embeddings, or cross-workspace synchronization.*
 
-The plugin deliberately does not implement a database, embeddings, OpenViking,
-company-wide retrieval, Jira/Teams/Confluence connectors, or cross-workspace
-Knowledge.
-
-## Runtime layout
+## Runtime Layout
 
 ```text
 PWD/
 ├── .opencode/
 │   ├── plugins/
-│   │   └── knowledge-learning-plugin.js -> central plugin
-│   └── skills/ -> central skills
+│   │   └── knowledge-learning-plugin.js
+│   └── skills/
+│       ├── knowledge-learning/
+│       └── knowledge-review/
 │
 └── .knowledge/
     ├── knowledge/
@@ -34,24 +33,18 @@ PWD/
 
 ## Installation
 
-The central deployment system should link the plugin into:
+Link the plugin and skills into your OpenCode project directory:
 
-```text
-$PWD/.opencode/plugins/knowledge-learning-plugin.js
+```bash
+mkdir -p $PWD/.opencode/plugins $PWD/.opencode/skills
+
+ln -s /path/to/dv-agent/plugins/knowledge-learning-plugin.js $PWD/.opencode/plugins/
+ln -s /path/to/dv-agent/skills/knowledge-learning $PWD/.opencode/skills/
+ln -s /path/to/dv-agent/skills/knowledge-review $PWD/.opencode/skills/
 ```
 
-and the Skill into:
+OpenCode automatically loads local plugins and skills from `.opencode/`.
 
-```text
-$PWD/.opencode/skills/knowledge-learning/
-```
+## RTL Guard Limitation
 
-OpenCode automatically loads local plugins from `.opencode/plugins/`.
-
-## Important v0.1.0 limitation
-
-The RTL guard is a policy enforcement layer for direct OpenCode tool calls.
-It blocks obvious RTL file/path access and RTL-related shell commands. It cannot
-prove that an arbitrary executable or script will not read RTL internally.
-For a hard security boundary, RTL must also be inaccessible at the OS/filesystem
-permission level.
+The RTL guard is a policy enforcement layer for direct OpenCode tool calls. It blocks obvious RTL file/path access and RTL-related shell commands. It cannot prove that an arbitrary executable or script will not read RTL internally. For a hard security boundary, RTL must also be inaccessible at the OS/filesystem permission level.

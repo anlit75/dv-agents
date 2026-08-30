@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-// The plugin intentionally keeps policy helpers private in v0.1.0.
+// The plugin keeps policy helpers private.
 // These tests exercise the same rules through a small extracted reference
 // implementation so the expected security behavior is explicit.
 

@@ -1,13 +1,17 @@
 /**
- * DV Agent v0.1.0 OpenCode plugin.
+ * DV Agent OpenCode plugin.
  *
  * Responsibilities:
  *   1. Initialize PWD/.knowledge/{knowledge,sources,candidates}
  *   2. Block direct RTL access through OpenCode tool execution
  *   3. Trigger knowledge-learning once when a session becomes idle
+ *   4. Notify user of pending Knowledge Candidates
  *
  * No external dependencies are required.
  */
+
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const RTL_PATH_SEGMENTS = [
   "/rtl/",
@@ -74,8 +78,39 @@ function knowledgeRoot(directory) {
   return `${directory}/.knowledge`;
 }
 
-async function ensureKnowledgeRepository($, directory) {
-  await $`mkdir -p ${knowledgeRoot(directory)}/knowledge ${knowledgeRoot(directory)}/sources ${knowledgeRoot(directory)}/candidates`;
+async function ensureKnowledgeRepository(directory) {
+  const base = knowledgeRoot(directory);
+  await fs.mkdir(`${base}/knowledge`, { recursive: true });
+  await fs.mkdir(`${base}/sources`, { recursive: true });
+  await fs.mkdir(`${base}/candidates`, { recursive: true });
+}
+
+async function countPendingCandidates(directory) {
+  try {
+    const candDir = path.join(knowledgeRoot(directory), "candidates");
+    const files = await fs.readdir(candDir);
+    return files.filter(f => f.endsWith(".md")).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+async function notifyUser(client, $, message) {
+  // Notify via TUI Toast
+  try {
+    await client.emit("tui.toast.show", { message });
+  } catch (e) { }
+
+  // Notify via OS (Linux/macOS/Windows)
+  try {
+    if (process.platform === 'linux') {
+      await $`notify-send "DV Agent" "${message}"`.quiet();
+    } else if (process.platform === 'darwin') {
+      await $`osascript -e 'display notification "${message}" with title "DV Agent"'`.quiet();
+    } else if (process.platform === 'win32') {
+      await $`powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('${message}', 'DV Agent')"`.quiet();
+    }
+  } catch (e) { }
 }
 
 function learningPrompt(directory) {
@@ -108,7 +143,14 @@ Knowledge-learning pass.
 }
 
 export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
-  await ensureKnowledgeRepository($, directory);
+  await ensureKnowledgeRepository(directory);
+
+  // Check pending on startup
+  const pendingCount = await countPendingCandidates(directory);
+  if (pendingCount > 0) {
+    const msg = `You have ${pendingCount} Knowledge Candidate(s) waiting for review. Run the knowledge-review skill.`;
+    await notifyUser(client, $, msg);
+  }
 
   const processedSessions = new Set();
   const learningSessions = new Set();
@@ -135,6 +177,8 @@ export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
       processedSessions.add(sessionId);
       learningSessions.add(sessionId);
 
+      const countBefore = await countPendingCandidates(directory);
+
       try {
         await client.session.prompt({
           path: { id: sessionId },
@@ -145,6 +189,16 @@ export const KnowledgeLearningPlugin = async ({ client, $, directory }) => {
       } finally {
         learningSessions.delete(sessionId);
       }
+
+      const countAfter = await countPendingCandidates(directory);
+      if (countAfter > countBefore) {
+        const newCount = countAfter - countBefore;
+        const totalPending = countAfter;
+        const msg = `${newCount} new Knowledge Candidate(s) require review (Total pending: ${totalPending}).\nWorkspace: ${directory}\nRun knowledge-review skill.`;
+        await notifyUser(client, $, msg);
+      }
     },
   };
 };
+
+export default KnowledgeLearningPlugin;
